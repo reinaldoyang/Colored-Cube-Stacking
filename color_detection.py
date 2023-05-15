@@ -1,6 +1,11 @@
 import cv2 as cv
 import numpy as np
 from numpy.linalg import inv
+import socket
+import time
+
+HOST = '192.168.0.1' # arm ip
+PORT = 3000
 
 #Load saved camera calibration data 
 with np.load('CameraParameters.npz') as file:
@@ -9,14 +14,18 @@ with np.load('CameraParameters.npz') as file:
 
 #capture video throguh webcam
 webcam = cv.VideoCapture(0, cv.CAP_DSHOW)
+# get vcap property 
+width  = webcam.get(cv.CAP_PROP_FRAME_WIDTH)   # float `width`
+height = webcam.get(cv.CAP_PROP_FRAME_HEIGHT)  # float `height`
+print(width, height)
 
 #for making the cv.imshow bigger
 # webcam.set(3, 1920)
 # webcam.set(4, 1080)
 
 #width of the fov is 87 cm
-XPIXEL_TO_CM = 60/1920
-YPIXEL_TO_CM = 30/1080
+XPIXEL_TO_CM = 900/640
+YPIXEL_TO_CM = 630/480
 
 lower_range_red = np.array([0, 177, 88])
 upper_range_red = np.array([180, 255, 255])
@@ -58,7 +67,7 @@ def red(img, lower_range, upper_range):
                 cv.putText(img, f'Red, centroid: ({cx}, {cy})', (x, y-10), cv.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 2)
             cv.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
             cv.putText(frame,("DETECT"),(10,60),cv.FONT_HERSHEY_SIMPLEX,0.6,(0,0,255),2)
-            return cx, cy
+            return cx_cm, cy_cm
             # cv.putText(frame, 'red', (x, y-10), cv.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
 
 def green(img, lower_range, upper_range):
@@ -141,64 +150,54 @@ def blue(img, lower_range, upper_range):
             cv.rectangle(frame,(x,y),(x+w,y+h),(0,255,0),2)
             return cx, cy
 
-def image_to_robot(image_coord, intrinsic_matrix, homogeneous_transformation):
-    
-    inverse_camera_matrix = inv(intrinsic_matrix)
-    print("\nInverse Intrinsic Matrix: \n", inverse_camera_matrix)
-    
+def image_to_robot(image_coord, homogeneous_transformation):
+    print("Image coordinates in cm:" , image_coord)
     matrix = np.matmul(homogeneous_transformation, image_coord)
-    # matrix = np.matmul(inverse_camera_matrix, image_coord)
-    print("\n Multiplication of inverse camera matrix and image coord\n",matrix)
+    print(matrix)
 
-    #multiply the inverse camera matrix with z value (object to camera)
-    zc=500
-    matrix *= zc
-    print("\n Multiply it by zc\n",matrix)
+homogeneous_transformation = [[-1, 0, 0, 680], 
+                            [0, 1, 0, 310], 
+                            [0, 0, -1, 846],
+                            [0, 0, 0, 1]]
 
-    # inverse_extrinsic_matrix = inv(extrinsic_matrix)
-    matrix_2 = np.append(matrix, [1])
+def send_coordinates():
 
-    print("\nAppend 0 to the end of the matrix \n", matrix_2)
-    # print("\n Extrinsic_matrix: \n", extrinsic_matrix)
-    # print("\n Inverse_extrinsic_matrix: \n", inverse_extrinsic_matrix)
-
-    # matrix_2 = np.matmul(inverse_extrinsic_matrix, matrix_2)
-    # print("\n Result \n",matrix_2)
-
-# define the extrinsic matrix
-extrinsic_matrix = [[-1, 0, 0, 266], 
-                     [0, 1, 0, 576], 
-                     [0, 0, -1, 920],
-                     [0, 0, 0, 1]]
-
-homogeneous_transformation = [[-1, 0, 0, 50], 
-                                [0, 1, 0, 42], 
-                                [0, 0, -1, 0],
-                                [0, 0, 0, 1]]
-
+    time.sleep(5)
+    while True:
+        s.send(bytes("-15,-3,1065,-0.02,-0.05,-179", "utf-8"))
+        time.sleep(5)
 
 while(True):
     ret, frame = webcam.read()
-
-    red(frame, lower_range_red, upper_range_red)
-    yellow(frame, lower_range_yellow, upper_range_yellow)
-    green(frame, lower_range_green, upper_range_green)
-    blue(frame, lower_range_blue, upper_range_blue)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((HOST, PORT))
+    # red(frame, lower_range_red, upper_range_red)
+    # yellow(frame, lower_range_yellow, upper_range_yellow)
+    # green(frame, lower_range_green, upper_range_green)
+    # blue(frame, lower_range_blue, upper_range_blue)
     # orange(frame, lower_range_orange, upper_range_orange)
 
     #create if detected then retrieve coordinate
     if bool(red(frame, lower_range_red, upper_range_red)) == True:
         cx_red, cy_red = red(frame, lower_range_red, upper_range_red)
 
-    # # img_coord = [cx, cy, 1, 1]
-    # cx_blue, cy_blue = blue(frame, lower_range_blue, upper_range_blue)
+    img_coord = [cx_red, cy_red, 1, 1]
+    
     cv.imshow('Video', frame)
-    if cv.waitKey(1) == 27: #Esc key
+    key = cv.waitKey(1)
+    if key == ord('c'):
+        print("Calculation:")
+        image_to_robot(img_coord, homogeneous_transformation)
+        continue
+    if key == ord('s'):
+        print("Sending coordinates")
+        s.send(bytes("-15,-3,1065,180,0,180", "utf-8"))
+        time.sleep(5)
+        continue
+    if key == 27: #Esc key
         break
-    if cv.waitKey(1) == ord('s'):
-        print("successful")
-    #     # print(img_coord)
-    #     # image_to_robot(img_coord, mtx, homogeneous_transformation)
+
+
     
     
 #Release capture object after loop
