@@ -151,26 +151,39 @@ def blue(img, lower_range, upper_range):
             return cx, cy
 
 def image_to_robot(image_coord, homogeneous_transformation):
-    print("Image coordinates in cm:" , image_coord)
+    print("Object location (cm) in camera coordinate:" , image_coord)
     matrix = np.matmul(homogeneous_transformation, image_coord)
-    print(matrix)
+    matrix = matrix[0:2]
+    print("Object location (cm) in robot base coordinate: ", matrix)
+    return matrix
 
 homogeneous_transformation = [[-1, 0, 0, 680], 
                             [0, 1, 0, 310], 
                             [0, 0, -1, 846],
                             [0, 0, 0, 1]]
 
-def send_coordinates():
+#define robot resting height
+rest_height = 400
 
-    time.sleep(5)
-    while True:
-        s.send(bytes("-15,-3,1065,-0.02,-0.05,-179", "utf-8"))
-        time.sleep(5)
+def send_coordinates(coordinates):
+    while True:  
+        s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], rest_height, 180, 0, 180), "utf-8"))
+        break
+
+def rotateMatrixToEulerAngles2(RM):
+    theta_z = np.arctan2(RM[1, 0], RM[0, 0]) / np.pi * 180
+    theta_y = np.arctan2(-1 * RM[2, 0], np.sqrt(RM[2, 1] * RM[2, 1] + RM[2, 2] * RM[2, 2])) / np.pi * 180
+    theta_x = np.arctan2(RM[2, 1], RM[2, 2]) / np.pi * 180
+    # print(f"Euler angles:\ntheta_x: {theta_x}\ntheta_y: {theta_y}\ntheta_z: {theta_z}")
+    print('Rx,Ry,Rz:\n',theta_x,theta_y,theta_z)
+    return theta_x, theta_y, theta_z
+
 
 while(True):
     ret, frame = webcam.read()
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST, PORT))
+
     # red(frame, lower_range_red, upper_range_red)
     # yellow(frame, lower_range_yellow, upper_range_yellow)
     # green(frame, lower_range_green, upper_range_green)
@@ -187,18 +200,17 @@ while(True):
     key = cv.waitKey(1)
     if key == ord('c'):
         print("Calculation:")
-        image_to_robot(img_coord, homogeneous_transformation)
+        location = image_to_robot(img_coord, homogeneous_transformation)
         continue
+
     if key == ord('s'):
         print("Sending coordinates")
-        s.send(bytes("-15,-3,1065,180,0,180", "utf-8"))
-        time.sleep(5)
+        send_coordinates(location)
         continue
+
     if key == 27: #Esc key
         break
 
-
-    
     
 #Release capture object after loop
 webcam.release()
