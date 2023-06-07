@@ -2,7 +2,7 @@ import serial
 import time
 import binascii
 
-ser = serial.Serial(port='COM11', baudrate=115200, timeout=1, parity=serial.PARITY_NONE,
+ser = serial.Serial(port='COM10', baudrate=115200, timeout=1, parity=serial.PARITY_NONE,
                     stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS)
 counter = 0
 
