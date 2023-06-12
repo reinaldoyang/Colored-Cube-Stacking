@@ -166,9 +166,11 @@ homogeneous_transformation = [[-1, 0, 0, 680],
 rest_height = 400
 
 def send_coordinates(coordinates):
-    while True:  
-        s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], rest_height, 180, 0, 180), "utf-8"))
-        break
+    s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], rest_height, 180, 0, 180), "utf-8"))
+    time.sleep(3)
+    # while True:  
+    #     s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], rest_height, 180, 0, 180), "utf-8"))
+    #     break
 
 def rotateMatrixToEulerAngles2(RM):
     theta_z = np.arctan2(RM[1, 0], RM[0, 0]) / np.pi * 180
@@ -177,6 +179,36 @@ def rotateMatrixToEulerAngles2(RM):
     # print(f"Euler angles:\ntheta_x: {theta_x}\ntheta_y: {theta_y}\ntheta_z: {theta_z}")
     print('Rx,Ry,Rz:\n',theta_x,theta_y,theta_z)
     return theta_x, theta_y, theta_z
+
+    
+def down(coordinates):
+    z = 167
+    s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], z, 180, 0, 180), "utf-8"))
+    time.sleep(3)
+    
+def up(coordinates):
+    sz = 400
+    s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], sz, 180, 0, 180), "utf-8"))
+    time.sleep(3)
+
+def close():
+    print("close")
+    # ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x09\x00\x00\xFF\xFF\xFF\x42\x29')
+    # time.sleep(1)
+
+def open():
+    print("open")
+    # ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x09\x00\x00\x00\xFF\xFF\x72\x19')
+    # time.sleep(1)
+
+place_coordinates = [604, 242]
+def place(place_coordinates):
+    z = 167
+    sz = 400
+    s.send(bytes("{},{},{},{},{},{}".format(place_coordinates[0], place_coordinates[1], sz, 180, 0, 180), "utf-8"))
+    time.sleep(5)
+    s.send(bytes("{},{},{},{},{},{}".format(place_coordinates[0], place_coordinates[1], z, 180, 0, 180), "utf-8"))
+    time.sleep(3)
 
 
 while(True):
@@ -206,6 +238,16 @@ while(True):
     if key == ord('s'):
         print("Sending coordinates")
         send_coordinates(location)
+        time.sleep(10)
+        down(location)
+        time.sleep(5)
+        close()
+        time.sleep(5)
+        up(location)
+        time.sleep(5)
+        place(place_coordinates)
+        time.sleep(3)
+        open()
         continue
 
     if key == 27: #Esc key
