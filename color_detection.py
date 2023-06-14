@@ -3,6 +3,11 @@ import numpy as np
 from numpy.linalg import inv
 import socket
 import time
+import serial
+
+
+ser = serial.Serial(port='COM12', baudrate=115200, timeout=1, parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE, bytesize=serial.EIGHTBITS)
 
 HOST = '192.168.0.1' # arm ip
 PORT = 3000
@@ -24,6 +29,8 @@ print(width, height)
 # webcam.set(4, 1080)
 
 #width of the fov is 87 cm
+# XPIXEL_TO_CM = 900/640
+# YPIXEL_TO_CM = 630/480
 XPIXEL_TO_CM = 900/640
 YPIXEL_TO_CM = 630/480
 
@@ -157,8 +164,12 @@ def image_to_robot(image_coord, homogeneous_transformation):
     print("Object location (cm) in robot base coordinate: ", matrix)
     return matrix
 
+# homogeneous_transformation = [[-1, 0, 0, 680], 
+#                             [0, 1, 0, 310], 
+#                             [0, 0, -1, 846],
+#                             [0, 0, 0, 1]]
 homogeneous_transformation = [[-1, 0, 0, 680], 
-                            [0, 1, 0, 310], 
+                            [0, 1, 0, 240], 
                             [0, 0, -1, 846],
                             [0, 0, 0, 1]]
 
@@ -181,34 +192,29 @@ def rotateMatrixToEulerAngles2(RM):
     return theta_x, theta_y, theta_z
 
     
-def down(coordinates):
-    z = 167
+def down(coordinates, z):
+
     s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], z, 180, 0, 180), "utf-8"))
-    time.sleep(3)
     
 def up(coordinates):
     sz = 400
     s.send(bytes("{},{},{},{},{},{}".format(coordinates[0], coordinates[1], sz, 180, 0, 180), "utf-8"))
-    time.sleep(3)
 
 def close():
     print("close")
-    # ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x09\x00\x00\xFF\xFF\xFF\x42\x29')
-    # time.sleep(1)
+    ser.write(serial.to_bytes([0x09,0x10,0x03,0xE8,0x00,0x03,0x06,0x09,0x00,0x00,0x6E,0x3F,0x3F,0x43,0x94]))
 
 def open():
     print("open")
-    # ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x09\x00\x00\x00\xFF\xFF\x72\x19')
-    # time.sleep(1)
+    ser.write(b'\x09\x10\x03\xE8\x00\x03\x06\x09\x00\x00\x00\xFF\xFF\x72\x19')
 
-place_coordinates = [604, 242]
+place_coordinates = [500, 242]
 def place(place_coordinates):
-    z = 167
+    # z = 167
     sz = 400
     s.send(bytes("{},{},{},{},{},{}".format(place_coordinates[0], place_coordinates[1], sz, 180, 0, 180), "utf-8"))
-    time.sleep(5)
-    s.send(bytes("{},{},{},{},{},{}".format(place_coordinates[0], place_coordinates[1], z, 180, 0, 180), "utf-8"))
-    time.sleep(3)
+    # s.send(bytes("{},{},{},{},{},{}".format(place_coordinates[0], place_coordinates[1], z, 180, 0, 180), "utf-8"))
+    # time.sleep(3)
 
 
 while(True):
@@ -238,16 +244,22 @@ while(True):
     if key == ord('s'):
         print("Sending coordinates")
         send_coordinates(location)
-        time.sleep(10)
-        down(location)
+        time.sleep(3)
+        down(location, 167)
         time.sleep(5)
         close()
-        time.sleep(5)
-        up(location)
-        time.sleep(5)
-        place(place_coordinates)
         time.sleep(3)
+        up(location)
+        time.sleep(3)
+        place(place_coordinates)
+        time.sleep(5)
+        down(place_coordinates, 172)
+        time.sleep(5)
         open()
+        time.sleep(1)
+        up(place_coordinates)
+        
+
         continue
 
     if key == 27: #Esc key
